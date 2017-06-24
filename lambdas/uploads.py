@@ -92,7 +92,8 @@ def save_descriptor_to_redis(descriptor):
 	upload_descriptor_cache = redis.StrictRedis(
 		host=DESCRIPTOR_CACHE_HOST,
 		port=DESCRIPTOR_CACHE_PORT,
-		db=DESCRIPTOR_CACHE_DB
+		db=DESCRIPTOR_CACHE_DB,
+		socket_timeout=10
 	)
 
 	upload_descriptor_cache.set(shortid, descriptor_body)
