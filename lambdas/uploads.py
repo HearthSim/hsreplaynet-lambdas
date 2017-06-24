@@ -136,3 +136,16 @@ def generate_log_upload_address_handler(event, context):
 		"shortid": shortid,
 		"url": get_upload_url(shortid),
 	}
+
+
+if __name__ == "__main__":
+	body = base64.b64encode(b"{}")
+	event = {
+		"headers": {
+			"authorization": "Token Foo",
+		},
+		"body": body,
+		"source_ip": "127.0.0.1",
+	}
+	context = None
+	print(generate_log_upload_address_handler(event, context))
