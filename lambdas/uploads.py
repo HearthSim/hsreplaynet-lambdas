@@ -17,6 +17,7 @@ import json
 import logging
 import random
 import boto3
+import redis
 import shortuuid
 
 
@@ -27,6 +28,10 @@ logger.setLevel(logging.INFO)
 S3 = boto3.client("s3")
 
 S3_RAW_LOG_UPLOAD_BUCKET = "hsreplaynet-uploads"
+
+DESCRIPTOR_CACHE_HOST = "localhost"
+DESCRIPTOR_CACHE_PORT = 6379
+DESCRIPTOR_CACHE_DB = 0
 
 
 PERCENT_CANARY_UPLOADS = 25
@@ -80,6 +85,19 @@ def save_descriptor_to_s3(descriptor, ts_path):
 	)
 
 
+def save_descriptor_to_redis(descriptor):
+	shortid = descriptor["shortid"]
+	descriptor_body = json.dumps(descriptor)
+
+	upload_descriptor_cache = redis.StrictRedis(
+		host=DESCRIPTOR_CACHE_HOST,
+		port=DESCRIPTOR_CACHE_PORT,
+		db=DESCRIPTOR_CACHE_DB
+	)
+
+	upload_descriptor_cache.set(shortid, descriptor_body)
+
+
 def generate_log_upload_address_handler(event, context):
 	gateway_headers = event["headers"]
 
@@ -115,6 +133,7 @@ def generate_log_upload_address_handler(event, context):
 	}
 
 	save_descriptor_to_s3(descriptor, ts_path)
+	save_descriptor_to_redis(descriptor)
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
