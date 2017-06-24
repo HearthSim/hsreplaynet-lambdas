@@ -45,7 +45,7 @@ def is_canary_upload(event):
 
 def get_timestamp():
 	from datetime import datetime
-	return datetime.now()
+	return datetime.now().strftime("%Y/%m/%d/%H/%M")
 
 
 def get_shortid():
@@ -69,16 +69,27 @@ def get_auth_token(headers):
 	return auth_components[1]
 
 
+def save_descriptor_to_s3(descriptor, ts_path):
+	s3_descriptor_key = "raw/%s/%s.descriptor.json" % (ts_path, descriptor["shortid"])
+
+	S3.put_object(
+		ACL="private",
+		Key=s3_descriptor_key,
+		Body=json.dumps(descriptor).encode("utf8"),
+		Bucket=S3_RAW_LOG_UPLOAD_BUCKET
+	)
+
+
 def generate_log_upload_address_handler(event, context):
 	gateway_headers = event["headers"]
 
 	auth_token = get_auth_token(gateway_headers)
 	shortid = get_shortid()
 
-	ts = get_timestamp()
-	ts_path = ts.strftime("%Y/%m/%d/%H/%M")
+	ts_path = get_timestamp()
 
-	upload_metadata = json.loads(base64.b64decode(event.pop("body")).decode("utf8"))
+	body = base64.b64decode(event.pop("body"))
+	upload_metadata = json.loads(body.decode("utf8"))
 
 	if not isinstance(upload_metadata, dict):
 		raise Exception("Meta data is not a valid JSON dictionary.")
@@ -92,31 +103,23 @@ def generate_log_upload_address_handler(event, context):
 	if is_canary:
 		upload_metadata["canary"] = is_canary
 
-	log_template = "Token: %s | ShortID: %s | TS: %s | Canary: %s"
-	logger.info(log_template % (auth_token, shortid, ts_path, is_canary))
+	log_template = "Token: %s | ShortID: %s | Canary: %s"
+	logger.info(log_template % (auth_token, shortid, is_canary))
 
 	descriptor = {
 		"gateway_headers": gateway_headers,
 		"shortid": shortid,
 		"source_ip": event["source_ip"],
 		"upload_metadata": upload_metadata,
+		"event": event,
 	}
 
-	s3_descriptor_key = "raw/%s/%s.descriptor.json" % (ts_path, shortid)
+	save_descriptor_to_s3(descriptor, ts_path)
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
 	log_key_suffix = "power.log" if not is_canary else "canary.log"
 	s3_powerlog_key = "raw/%s/%s.%s" % (ts_path, shortid, log_key_suffix)
-
-	descriptor["event"] = event
-
-	S3.put_object(
-		ACL="private",
-		Key=s3_descriptor_key,
-		Body=json.dumps(descriptor).encode("utf8"),
-		Bucket=S3_RAW_LOG_UPLOAD_BUCKET
-	)
 
 	log_put_expiration = 60 * 60 * 24
 	# Only one day, since if it hasn't been used by then it's unlikely to be used.
