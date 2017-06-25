@@ -13,13 +13,11 @@ These design considerations mean this lambda can be deployed on a different cycl
 the rest of the hsreplaynet codebase.
 """
 import base64
-import bz2
 import json
 import logging
 import os
 import random
 import boto3
-import redis
 import shortuuid
 
 
@@ -31,10 +29,6 @@ S3 = boto3.client("s3")
 
 
 RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
-DESCRIPTOR_CACHE_HOST = os.getenv("DESCRIPTOR_CACHE_HOST")
-DESCRIPTOR_CACHE_PORT = os.getenv("DESCRIPTOR_CACHE_PORT", 6379)
-DESCRIPTOR_CACHE_DB = 0
-
 
 PERCENT_CANARY_UPLOADS = 25
 
@@ -87,21 +81,6 @@ def save_descriptor_to_s3(descriptor, ts_path):
 	)
 
 
-def save_descriptor_to_redis(descriptor):
-	shortid = descriptor["shortid"]
-	descriptor_body = json.dumps(descriptor)
-	compressed_descriptor_body = bz2.compress(descriptor_body.encode("utf-8"))
-
-	upload_descriptor_cache = redis.StrictRedis(
-		host=DESCRIPTOR_CACHE_HOST,
-		port=DESCRIPTOR_CACHE_PORT,
-		db=DESCRIPTOR_CACHE_DB,
-		socket_timeout=10
-	)
-
-	upload_descriptor_cache.set(shortid, compressed_descriptor_body)
-
-
 def generate_log_upload_address_handler(event, context):
 	gateway_headers = event["headers"]
 
@@ -136,11 +115,7 @@ def generate_log_upload_address_handler(event, context):
 		"event": event,
 	}
 
-	try:
-		save_descriptor_to_redis(descriptor)
-	except Exception as e:
-		logger.exception("Could not connect to Redis. Using S3 instead.")
-		save_descriptor_to_s3(descriptor, ts_path)
+	save_descriptor_to_s3(descriptor, ts_path)
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
