@@ -134,8 +134,11 @@ def generate_log_upload_address_handler(event, context):
 		"event": event,
 	}
 
-	save_descriptor_to_s3(descriptor, ts_path)
-	save_descriptor_to_redis(descriptor)
+	try:
+		save_descriptor_to_redis(descriptor)
+	except Exception as e:
+		logger.exception("Could not connect to Redis. Using S3 instead.")
+		save_descriptor_to_s3(descriptor, ts_path)
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
