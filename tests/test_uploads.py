@@ -3,7 +3,7 @@ import importlib
 import os
 import boto3
 from moto import mock_s3
-from lambdas import uploads
+from lambdas import uploaders as uploads
 
 
 def _mock_event_context():
