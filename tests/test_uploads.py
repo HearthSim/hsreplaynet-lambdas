@@ -1,0 +1,34 @@
+import base64
+import boto3
+from moto import mock_s3
+from lambdas import uploads
+
+
+@mock_s3
+def test_uploads_lambda():
+	# set up the bucket
+	s3 = boto3.client("s3")
+	boto3.resource("s3").create_bucket(Bucket=uploads.RAW_UPLOADS_BUCKET)
+
+	body = base64.b64encode(b"{}")
+	event = {
+		"headers": {
+			"authorization": "Token Foo",
+		},
+		"body": body,
+		"source_ip": "127.0.0.1",
+	}
+	context = None
+	ret = uploads.generate_log_upload_address_handler(event, context)
+
+	shortid = ret["shortid"]
+
+	assert len(shortid) > 20
+	assert ret["url"] == "https://hsreplay.net/uploads/upload/%s/" % (shortid)
+	assert ret["put_url"].startswith("https://")
+
+	# List the objects
+	objs = s3.list_objects_v2(Bucket=uploads.RAW_UPLOADS_BUCKET)["Contents"]
+	assert len(objs) == 1
+
+	assert shortid in objs[0]["Key"]
