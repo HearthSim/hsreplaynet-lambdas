@@ -15,6 +15,7 @@ the rest of the hsreplaynet codebase.
 import base64
 import json
 import logging
+import os
 import random
 import boto3
 import redis
@@ -27,10 +28,10 @@ logger.setLevel(logging.INFO)
 
 S3 = boto3.client("s3")
 
-S3_RAW_LOG_UPLOAD_BUCKET = "hsreplaynet-uploads"
 
-DESCRIPTOR_CACHE_HOST = "localhost"
-DESCRIPTOR_CACHE_PORT = 6379
+RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
+DESCRIPTOR_CACHE_HOST = os.getenv("DESCRIPTOR_CACHE_HOST")
+DESCRIPTOR_CACHE_PORT = os.getenv("DESCRIPTOR_CACHE_PORT", 6379)
 DESCRIPTOR_CACHE_DB = 0
 
 
@@ -81,7 +82,7 @@ def save_descriptor_to_s3(descriptor, ts_path):
 		ACL="private",
 		Key=s3_descriptor_key,
 		Body=json.dumps(descriptor).encode("utf8"),
-		Bucket=S3_RAW_LOG_UPLOAD_BUCKET
+		Bucket=RAW_UPLOADS_BUCKET
 	)
 
 
@@ -146,7 +147,7 @@ def generate_log_upload_address_handler(event, context):
 	presigned_put_url = S3.generate_presigned_url(
 		"put_object",
 		Params={
-			"Bucket": S3_RAW_LOG_UPLOAD_BUCKET,
+			"Bucket": RAW_UPLOADS_BUCKET,
 			"Key": s3_powerlog_key,
 			"ContentType": "text/plain",
 		},
