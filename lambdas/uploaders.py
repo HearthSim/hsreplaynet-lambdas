@@ -13,6 +13,7 @@ These design considerations mean this lambda can be deployed on a different cycl
 the rest of the hsreplaynet codebase.
 """
 import base64
+import bz2
 import json
 import logging
 import os
@@ -89,6 +90,7 @@ def save_descriptor_to_s3(descriptor, ts_path):
 def save_descriptor_to_redis(descriptor):
 	shortid = descriptor["shortid"]
 	descriptor_body = json.dumps(descriptor)
+	compressed_descriptor_body = bz2.compress(descriptor_body.encode("utf-8"))
 
 	upload_descriptor_cache = redis.StrictRedis(
 		host=DESCRIPTOR_CACHE_HOST,
@@ -97,7 +99,7 @@ def save_descriptor_to_redis(descriptor):
 		socket_timeout=10
 	)
 
-	upload_descriptor_cache.set(shortid, descriptor_body)
+	upload_descriptor_cache.set(shortid, compressed_descriptor_body)
 
 
 def generate_log_upload_address_handler(event, context):
