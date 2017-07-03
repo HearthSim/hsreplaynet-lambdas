@@ -22,6 +22,7 @@ def _mock_event_context():
 def test_uploads_lambda_s3():
 	# set up the bucket
 	s3 = boto3.client("s3")
+	boto3.resource("s3").create_bucket(Bucket=uploads.DESCRIPTORS_BUCKET)
 	boto3.resource("s3").create_bucket(Bucket=uploads.RAW_UPLOADS_BUCKET)
 
 	event, context = _mock_event_context()
@@ -33,7 +34,7 @@ def test_uploads_lambda_s3():
 	assert ret["put_url"].startswith("https://")
 
 	# List the objects
-	objs = s3.list_objects_v2(Bucket=uploads.RAW_UPLOADS_BUCKET)["Contents"]
+	objs = s3.list_objects_v2(Bucket=uploads.DESCRIPTORS_BUCKET)["Contents"]
 	assert len(objs) == 1
 
 	assert shortid in objs[0]["Key"]

@@ -29,6 +29,7 @@ S3 = boto3.client("s3")
 
 
 RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
+DESCRIPTORS_BUCKET = os.getenv("DESCRIPTORS_BUCKET", "hsreplaynet-descriptors")
 
 PERCENT_CANARY_UPLOADS = 25
 
@@ -78,6 +79,15 @@ def save_descriptor_to_s3(descriptor, ts_path):
 		Key=s3_descriptor_key,
 		Body=json.dumps(descriptor).encode("utf8"),
 		Bucket=RAW_UPLOADS_BUCKET
+	)
+
+	# also save it here:
+
+	S3.put_object(
+		ACL="private",
+		Key="descriptors/%s.json" % (descriptor["shortid"]),
+		Body=json.dumps(descriptor).encode("utf8"),
+		Bucket=DESCRIPTORS_BUCKET
 	)
 
 
