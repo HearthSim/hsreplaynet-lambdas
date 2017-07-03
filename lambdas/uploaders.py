@@ -71,18 +71,7 @@ def get_auth_token(headers):
 	return auth_components[1]
 
 
-def save_descriptor_to_s3(descriptor, ts_path):
-	s3_descriptor_key = "raw/%s/%s.descriptor.json" % (ts_path, descriptor["shortid"])
-
-	S3.put_object(
-		ACL="private",
-		Key=s3_descriptor_key,
-		Body=json.dumps(descriptor).encode("utf8"),
-		Bucket=RAW_UPLOADS_BUCKET
-	)
-
-	# also save it here:
-
+def save_descriptor_to_s3(descriptor):
 	S3.put_object(
 		ACL="private",
 		Key="descriptors/%s.json" % (descriptor["shortid"]),
@@ -125,7 +114,7 @@ def generate_log_upload_address_handler(event, context):
 		"event": event,
 	}
 
-	save_descriptor_to_s3(descriptor, ts_path)
+	save_descriptor_to_s3(descriptor)
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
