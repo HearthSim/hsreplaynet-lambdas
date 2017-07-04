@@ -81,9 +81,7 @@ def save_descriptor_to_s3(descriptor):
 
 
 def generate_log_upload_address_handler(event, context):
-	gateway_headers = event["headers"]
-
-	auth_token = get_auth_token(gateway_headers)
+	auth_token = get_auth_token(event["headers"])
 	shortid = get_shortid()
 
 	ts_path = get_timestamp()
@@ -107,9 +105,7 @@ def generate_log_upload_address_handler(event, context):
 	logger.info(log_template % (auth_token, shortid, is_canary))
 
 	descriptor = {
-		"gateway_headers": gateway_headers,
 		"shortid": shortid,
-		"source_ip": event["source_ip"],
 		"upload_metadata": upload_metadata,
 		"event": event,
 	}
