@@ -80,12 +80,7 @@ def save_descriptor_to_s3(descriptor):
 	)
 
 
-def generate_log_upload_address_handler(event, context):
-	auth_token = get_auth_token(event["headers"])
-	shortid = get_shortid()
-
-	ts_path = get_timestamp()
-
+def get_upload_metadata(event, is_canary):
 	body = base64.b64decode(event.pop("body"))
 	upload_metadata = json.loads(body.decode("utf8"))
 
@@ -97,20 +92,14 @@ def generate_log_upload_address_handler(event, context):
 	# However during a lambdas deploy, the canaries are exposed to the newest code first
 	# All canary uploads must succeed before the newest code gets promoted
 	# To handle 100% of the upload volume.
-	is_canary = is_canary_upload(event)
 	if is_canary:
 		upload_metadata["canary"] = is_canary
 
-	log_template = "Token: %s | ShortID: %s | Canary: %s"
-	logger.info(log_template % (auth_token, shortid, is_canary))
+	return upload_metadata
 
-	descriptor = {
-		"shortid": shortid,
-		"upload_metadata": upload_metadata,
-		"event": event,
-	}
 
-	save_descriptor_to_s3(descriptor)
+def get_presigned_put_url(shortid, is_canary):
+	ts_path = get_timestamp()
 
 	# S3 only triggers downstream lambdas for PUTs suffixed with
 	#  '...power.log' or '...canary.log'
@@ -119,7 +108,7 @@ def generate_log_upload_address_handler(event, context):
 
 	log_put_expiration = 60 * 60 * 24
 	# Only one day, since if it hasn't been used by then it's unlikely to be used.
-	presigned_put_url = S3.generate_presigned_url(
+	return S3.generate_presigned_url(
 		"put_object",
 		Params={
 			"Bucket": RAW_UPLOADS_BUCKET,
@@ -129,6 +118,24 @@ def generate_log_upload_address_handler(event, context):
 		ExpiresIn=log_put_expiration,
 		HttpMethod="PUT"
 	)
+
+
+def generate_log_upload_address_handler(event, context):
+	auth_token = get_auth_token(event["headers"])
+	shortid = get_shortid()
+	is_canary = is_canary_upload(event)
+	upload_metadata = get_upload_metadata(event, is_canary)
+	logger.info("Token: %r, ID: %r, Canary %r", auth_token, shortid, is_canary)
+
+	descriptor = {
+		"shortid": shortid,
+		"upload_metadata": upload_metadata,
+		"event": event,
+	}
+
+	save_descriptor_to_s3(descriptor)
+
+	presigned_put_url = get_presigned_put_url(shortid, is_canary)
 
 	return {
 		"put_url": presigned_put_url,
