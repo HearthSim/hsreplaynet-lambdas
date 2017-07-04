@@ -31,6 +31,7 @@ S3 = boto3.client("s3")
 RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
 DESCRIPTORS_BUCKET = os.getenv("DESCRIPTORS_BUCKET", "hsreplaynet-descriptors")
 
+LOG_PUT_EXPIRATION = 60 * 60 * 24
 PERCENT_CANARY_UPLOADS = 25
 
 
@@ -106,7 +107,6 @@ def get_presigned_put_url(shortid, is_canary):
 	log_key_suffix = "power.log" if not is_canary else "canary.log"
 	s3_powerlog_key = "raw/%s/%s.%s" % (ts_path, shortid, log_key_suffix)
 
-	log_put_expiration = 60 * 60 * 24
 	# Only one day, since if it hasn't been used by then it's unlikely to be used.
 	return S3.generate_presigned_url(
 		"put_object",
@@ -115,7 +115,7 @@ def get_presigned_put_url(shortid, is_canary):
 			"Key": s3_powerlog_key,
 			"ContentType": "text/plain",
 		},
-		ExpiresIn=log_put_expiration,
+		ExpiresIn=LOG_PUT_EXPIRATION,
 		HttpMethod="PUT"
 	)
 
