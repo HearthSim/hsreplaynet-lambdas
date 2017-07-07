@@ -53,7 +53,7 @@ DB_URL = URL(
 	host=DB_HOST, port=DB_PORT,
 	database=DB_NAME
 )
-DB_ENGINE = create_engine(DB_URL, echo=True)
+DB_ENGINE = create_engine(DB_URL, connect_args={"connect_timeout": 2})
 Session = sessionmaker(bind=DB_ENGINE)
 
 
