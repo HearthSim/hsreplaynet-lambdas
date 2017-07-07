@@ -13,26 +13,54 @@ These design considerations mean this lambda can be deployed on a different cycl
 the rest of the hsreplaynet codebase.
 """
 import base64
+import datetime
 import json
 import logging
 import os
 import random
 import boto3
 import shortuuid
+from sqlalchemy import Column, create_engine, DateTime, VARCHAR
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine.url import URL
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm.session import sessionmaker
 
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-
 S3 = boto3.client("s3")
 
+
+LOG_PUT_EXPIRATION = 60 * 60 * 24
+PERCENT_CANARY_UPLOADS = 25
 
 RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
 DESCRIPTORS_BUCKET = os.getenv("DESCRIPTORS_BUCKET", "hsreplaynet-descriptors")
 
-LOG_PUT_EXPIRATION = 60 * 60 * 24
-PERCENT_CANARY_UPLOADS = 25
+DB_USERNAME = os.getenv("DB_USERNAME", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_HOST = os.getenv("DB_HOST", "")
+DB_PORT = os.getenv("DB_PORT", 5432)
+DB_NAME = os.getenv("DB_NAME", "uploads")
+
+DB_URL = URL(
+	"postgresql",
+	username=DB_USERNAME, password=DB_PASSWORD,
+	host=DB_HOST, port=DB_PORT,
+	database=DB_NAME
+)
+DB_ENGINE = create_engine(DB_URL, echo=True)
+Session = sessionmaker(bind=DB_ENGINE)
+
+
+class Descriptor(declarative_base()):
+	__tablename__ = "uploads_descriptor"
+
+	shortid = Column(VARCHAR(22), primary_key=True)
+	descriptor = Column(postgresql.JSONB)
+	created = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 
 
 def is_canary_upload(event):
@@ -47,8 +75,7 @@ def is_canary_upload(event):
 
 
 def get_timestamp():
-	from datetime import datetime
-	return datetime.now().strftime("%Y/%m/%d/%H/%M")
+	return datetime.datetime.now().strftime("%Y/%m/%d/%H/%M")
 
 
 def get_shortid():
@@ -70,6 +97,13 @@ def get_auth_token(headers):
 		raise Exception("Authorization header must have a scheme and a token.")
 
 	return auth_components[1]
+
+
+def save_descriptor_to_postgres(descriptor):
+	session = Session()
+	instance = Descriptor(shortid=descriptor["shortid"], descriptor=descriptor)
+	session.add(instance)
+	session.commit()
 
 
 def save_descriptor_to_s3(descriptor):
@@ -133,7 +167,11 @@ def generate_log_upload_address_handler(event, context):
 		"event": event,
 	}
 
-	save_descriptor_to_s3(descriptor)
+	try:
+		save_descriptor_to_postgres(descriptor)
+	except Exception:
+		logger.exception("Couldn't save to db")
+		save_descriptor_to_s3(descriptor)
 
 	presigned_put_url = get_presigned_put_url(shortid, is_canary)
 

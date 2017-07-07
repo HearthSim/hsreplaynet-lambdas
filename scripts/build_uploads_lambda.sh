@@ -20,10 +20,10 @@ zip -r "$ZIPFILE" "uploaders.py" "__init__.py"
 
 
 # Install and package dependencies
-pip install shortuuid redis
+pip install shortuuid psycopg2 sqlalchemy
 
 cd "$SITE_PACKAGES"
-zip -r "$ZIPFILE" "./shortuuid/" "./redis/"
+zip -r "$ZIPFILE" "./shortuuid/" "./psycopg2/" "./sqlalchemy/"
 
 
 echo "Written to $ZIPFILE"
