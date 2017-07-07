@@ -39,6 +39,8 @@ PERCENT_CANARY_UPLOADS = 25
 RAW_UPLOADS_BUCKET = os.getenv("RAW_UPLOADS_BUCKET", "hsreplaynet-uploads")
 DESCRIPTORS_BUCKET = os.getenv("DESCRIPTORS_BUCKET", "hsreplaynet-descriptors")
 
+FORCE_S3 = os.getenv("FORCE_S3", "") == "1"
+
 DB_USERNAME = os.getenv("DB_USERNAME", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_HOST = os.getenv("DB_HOST", "")
@@ -167,11 +169,14 @@ def generate_log_upload_address_handler(event, context):
 		"event": event,
 	}
 
-	try:
-		save_descriptor_to_postgres(descriptor)
-	except Exception:
-		logger.exception("Couldn't save to db")
+	if FORCE_S3:
 		save_descriptor_to_s3(descriptor)
+	else:
+		try:
+			save_descriptor_to_postgres(descriptor)
+		except Exception:
+			logger.exception("Couldn't save to db")
+			save_descriptor_to_s3(descriptor)
 
 	presigned_put_url = get_presigned_put_url(shortid, is_canary)
 
