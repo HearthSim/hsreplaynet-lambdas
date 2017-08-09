@@ -57,6 +57,10 @@ DB_ENGINE = create_engine(DB_URL, connect_args={"connect_timeout": 2})
 Session = sessionmaker(bind=DB_ENGINE)
 
 
+class BadUploadMetadata(Exception):
+	pass
+
+
 class Descriptor(declarative_base()):
 	__tablename__ = "uploads_descriptor"
 
@@ -118,11 +122,15 @@ def save_descriptor_to_s3(descriptor):
 
 
 def get_upload_metadata(event, is_canary):
-	body = base64.b64decode(event.pop("body"))
-	upload_metadata = json.loads(body.decode("utf8"))
+	body = base64.b64decode(event.pop("body")).decode("utf8")
+	try:
+		upload_metadata = json.loads(body)
+	except ValueError as e:
+		logger.exception("Invalid json %r: %r" % (body, event))
+		raise BadUploadMetadata("Invalid JSON") from e
 
 	if not isinstance(upload_metadata, dict):
-		raise Exception("Meta data is not a valid JSON dictionary.")
+		raise BadUploadMetadata("Meta data is not a valid JSON dictionary.")
 
 	# A small fixed percentage of uploads are marked as canaries
 	# 99% of the time they are handled identically to all other uploads
@@ -160,7 +168,11 @@ def generate_log_upload_address_handler(event, context):
 	auth_token = get_auth_token(event["headers"])
 	shortid = get_shortid()
 	is_canary = is_canary_upload(event)
-	upload_metadata = get_upload_metadata(event, is_canary)
+	try:
+		upload_metadata = get_upload_metadata(event, is_canary)
+	except BadUploadMetadata as e:
+		return {"error": str(e)}
+
 	logger.info("Token: %r, ID: %r, Canary %r", auth_token, shortid, is_canary)
 
 	descriptor = {

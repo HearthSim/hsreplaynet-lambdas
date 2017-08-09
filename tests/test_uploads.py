@@ -21,6 +21,14 @@ def _mock_event_context():
 
 
 @mock_s3
+def test_uploads_lambda_bad_metadata():
+	event, context = _mock_event_context()
+	event["body"] = base64.b64encode(b"bad data")
+	ret = uploads.generate_log_upload_address_handler(event, context)
+	assert ret == {"error": "Invalid JSON"}
+
+
+@mock_s3
 def test_uploads_lambda_postgres():
 	# set up the bucket
 	s3 = boto3.client("s3")
