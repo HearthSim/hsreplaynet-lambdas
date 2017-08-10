@@ -14,6 +14,7 @@ the rest of the hsreplaynet codebase.
 """
 import base64
 import datetime
+import gzip
 import json
 import logging
 import os
@@ -122,7 +123,16 @@ def save_descriptor_to_s3(descriptor):
 
 
 def get_upload_metadata(event, is_canary):
-	body = base64.b64decode(event.pop("body")).decode("utf8")
+	b64_body = event.pop("body")
+	raw_body = base64.b64decode(b64_body)
+
+	# aws bug 2017-08-10?
+	try:
+		raw_body = gzip.decompress(raw_body)
+	except OSError:
+		pass
+
+	body = raw_body.decode("utf8")
 	try:
 		upload_metadata = json.loads(body)
 	except ValueError as e:
@@ -192,8 +202,15 @@ def generate_log_upload_address_handler(event, context):
 
 	presigned_put_url = get_presigned_put_url(shortid, is_canary)
 
-	return {
+	response_body = json.dumps({
 		"put_url": presigned_put_url,
 		"shortid": shortid,
 		"url": get_upload_url(shortid),
+	})
+
+	return {
+		"isBase64Encoded": False,
+		"statusCode": 200,
+		"headers": {"content-type": "application/json"},
+		"body": response_body,
 	}
