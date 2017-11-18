@@ -1,4 +1,5 @@
 import base64
+import json
 import importlib
 import os
 import boto3
@@ -35,7 +36,14 @@ def test_uploads_lambda_postgres():
 	boto3.resource("s3").create_bucket(Bucket=uploads.RAW_UPLOADS_BUCKET)
 
 	event, context = _mock_event_context()
-	ret = uploads.generate_log_upload_address_handler(event, context)
+	apigw_ret = uploads.generate_log_upload_address_handler(event, context)
+
+	assert apigw_ret["body"]
+	assert apigw_ret["headers"] == {"content-type": "application/json"}
+	assert apigw_ret["isBase64Encoded"] is False
+	assert apigw_ret["statusCode"] == 200
+
+	ret = json.loads(apigw_ret["body"])
 
 	shortid = ret["shortid"]
 	assert len(shortid) > 20
@@ -63,7 +71,14 @@ def test_uploads_lambda_s3():
 	importlib.reload(uploads)
 
 	event, context = _mock_event_context()
-	ret = uploads.generate_log_upload_address_handler(event, context)
+	apigw_ret = uploads.generate_log_upload_address_handler(event, context)
+
+	assert apigw_ret["body"]
+	assert apigw_ret["headers"] == {"content-type": "application/json"}
+	assert apigw_ret["isBase64Encoded"] is False
+	assert apigw_ret["statusCode"] == 200
+
+	ret = json.loads(apigw_ret["body"])
 
 	shortid = ret["shortid"]
 	assert len(shortid) > 20
