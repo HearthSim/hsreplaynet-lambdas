@@ -23,7 +23,7 @@ zip -r "$ZIPFILE" "uploaders.py" "__init__.py"
 pip install shortuuid psycopg2-binary sqlalchemy
 
 cd "$SITE_PACKAGES"
-zip -r "$ZIPFILE" "./shortuuid/" "./psycopg2/" "./sqlalchemy/"
+zip -r "$ZIPFILE" "./shortuuid/" "./psycopg2/" "./psycopg2_binary.libs/" "./sqlalchemy/"
 
 
 echo "Written to $ZIPFILE"
