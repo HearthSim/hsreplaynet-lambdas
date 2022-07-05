@@ -20,7 +20,7 @@ zip -r "$ZIPFILE" "uploaders.py" "__init__.py"
 
 
 # Install and package dependencies
-pip install shortuuid psycopg2 sqlalchemy
+pip install shortuuid psycopg2-binary sqlalchemy
 
 cd "$SITE_PACKAGES"
 zip -r "$ZIPFILE" "./shortuuid/" "./psycopg2/" "./sqlalchemy/"
